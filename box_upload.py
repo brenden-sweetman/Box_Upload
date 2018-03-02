@@ -1,14 +1,20 @@
 #!/usr/bin/env python
+# Author: Brenden Sweetman brenden.sweetman@wustl.edu
+# Title: box_upload
+# Purpose: Upload files to a given folder in wustl box
+#   The script can be used generally given the -i (--ID) argument to specify a different location in box
+#   however, generally the script will upload to the designated file to share directly with the teaching clientSecret
+#   The script was developed using the box python api (https://github.com/box/box-python-sdk)
+
 from boxsdk import OAuth2
 from boxsdk import Client
 from boxsdk import exception
 import requests
 import time
 import re
-import sys , os
+import sys
 import ntpath
 import argparse
-from StringIO import StringIO
 
 clientID=""
 clientSecret=""
@@ -16,21 +22,24 @@ refreshToken=""
 accessToken=""
 expireTime=0
 # ID for folder to upload files
-folderID=46200064078
+folderID=47434826943
 oauth = None
 client = None
 verbose= False
+conf_path = ""
 
 
 ### Main function ###
 def main():
-    global client, oauth, verbose
+    global client, oauth, verbose, conf_path
     #parse command line arguments
     parser = argparse.ArgumentParser(description="Upload File to box")
     parser.add_argument("-v","--verbose", help="activate verbose mode", action='store_true')
     parser.add_argument("-f","--file", help="path to upload file", type=str, required=True)
+    parser.add_argument("-c","--config", help="path to config file", type=str, required=True)
     args=parser.parse_args(sys.argv[1:])
     verbose=args.verbose
+    conf_path = args.config
     # read config
     readCfg()
     # updtae auth if needed
@@ -61,7 +70,7 @@ def upload(filePath,folder=folderID):
 
 def refreshAuth():
     global clientID, clientSecret, refreshToken, accessToken, expireTime , folderID, verbose
-    ### Request Global Acess Token ###
+    ### Request Global Access Token ###
     # prepare authentication request (see: https://developer.box.com/reference#oauth-2-overview)
     refreshPayload={
         'grant_type':'refresh_token',
@@ -72,7 +81,6 @@ def refreshAuth():
     response= requests.post("https://api.box.com/oauth2/token",refreshPayload)
     # parse response
     if response.status_code==200:
-        print response.text
         accessToken= re.findall(r"access_token\":\"([^\"]+)\"",response.text)[0]
         refreshToken= re.findall(r"refresh_token\":\"([^\"]+)\"",response.text)[0]
     # print error if bad request
@@ -80,8 +88,8 @@ def refreshAuth():
     if verbose:
         print "Refresh Auth response:"
         print "Status: "+ str(response.status_code)
-        print "Access Token: " +accessToken
-        print "Refresh Token: " +refreshToken
+        print "Access Token: " + accessToken
+        print "Refresh Token: " + refreshToken
         print "\n\n"
     ### DownScope Access Token ###
     # prepare downscope request (see:https://developer.box.com/reference#token-exchange)
@@ -99,7 +107,7 @@ def refreshAuth():
         accessToken= re.findall(r"access_token\":\"([^\"]+)\"",response.text)[0]
         expireTime= int(re.findall(r"expires_in\":(\d+)",response.text)[0])+ time.time()
     # print error for bad response
-    else: print "Downscope Access Token cound not be created. Use verbose mode for more details"
+    else: print "Downscope Access Token could not be created. Use verbose mode for more details"
     if verbose:
         print "DownScope Auth response"
         print "Status: "+ str(response.status_code)
@@ -110,8 +118,8 @@ def refreshAuth():
 
 ### Write all required ID's and Tokens to a configuration file ###
 def writeCfg():
-    global clientID, clientSecret, refreshToken, accessToken, expireTime
-    with open("/Users/brenden/Desktop/git/Box_Upload/box.cfg", 'w') as cfg:
+    global clientID, clientSecret, refreshToken, accessToken, expireTime, conf_path
+    with open(conf_path, 'w') as cfg:
         cfg.write(clientID+"\n")
         cfg.write(clientSecret+"\n")
         cfg.write(refreshToken+"\n")
@@ -120,8 +128,8 @@ def writeCfg():
 
 ### Read all required ID's and Tokens from configuration file ###
 def readCfg():
-    global clientID, clientSecret, refreshToken, accessToken, expireTime
-    with open ("/Users/brenden/Desktop/git/Box_Upload/box.cfg", 'r') as cfg:
+    global clientID, clientSecret, refreshToken, accessToken, expireTime, conf_path
+    with open (conf_path, 'r') as cfg:
         clientID= cfg.readline().replace("\n","")
         clientSecret= cfg.readline().replace("\n","")
         refreshToken= cfg.readline().replace("\n","")
